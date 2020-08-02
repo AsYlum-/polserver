@@ -4,7 +4,6 @@ Quick and dirty prototype implement in poltool?
 import struct
 import os
 
-
 class TiledataItem:
     def __init__(self):
         self.flags=1
@@ -131,8 +130,53 @@ def generate_statics(path,width,height):
             for y in range(height//8):
                 f.write(entry)
 
-
+class MultiElem():
+    def __init__(self,graphic, x,y,z,flag):
+        self.graphic = graphic
+        self.x=x
+        self.y=y
+        self.z=z
+        self.flag=flag
+    def size(self, hsa):
+        if hsa:
+            return 16
+        return 12
+    def pack(self, stream, hsa):
+        if hsa:
+            stream.write(
+                struct.pack( '<HhhhII',
+                    self.graphic,
+                    self.x,
+                    self.y,
+                    self.z,
+                    self.flag,
+                    0
+               )
+            )
+        else:
+            stream.write(
+                struct.pack( '<HhhhI',
+                    self.graphic,
+                    self.x,
+                    self.y,
+                    self.z,
+                    self.flag
+               )
+            )
+def generate_multi(path, hsa):
+    multis=[[MultiElem(2,0,0,0,0)]]
+    with open(os.path.join(path,'multi.mul'),'wb') as f:
+        with open(os.path.join(path,'multi.idx'),'wb') as fi:
+            off=0
+            for multi in multis:
+                size=0
+                for e in multi:
+                    e.pack(f,hsa)
+                    size+=e.size(hsa)
+                fi.write(struct.pack('<iii',off,size,-1))
+                off+=size
 
 generate_map('.',6144,4096)
 generate_statics('.',6144,4096)
 generate_tiledata('.', False, 0x3Fff)
+generate_multi('.',False)
