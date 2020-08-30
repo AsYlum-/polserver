@@ -4,13 +4,17 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <set>
 
 #include "compiler/astbuilder/FunctionResolver.h"
 
 namespace Pol::Bscript::Compiler
 {
 class CompilerWorkspace;
+class ConstDeclaration;
+class ModuleFunctionDeclaration;
 class Profile;
+class Program;
 class Report;
 class SourceFile;
 class SourceFileCache;
@@ -31,6 +35,8 @@ public:
 
   Profile& profile;
   Report& report;
+
+  std::set<std::string> used_modules;
 
   std::map<std::string, std::shared_ptr<SourceFile>> source_files;
   FunctionResolver function_resolver;

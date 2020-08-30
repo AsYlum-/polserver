@@ -9,14 +9,16 @@
 #include "compiler/analyzer/SemanticAnalyzer.h"
 #include "compiler/astbuilder/CompilerWorkspaceBuilder.h"
 #include "compiler/codegen/CodeGenerator.h"
+#include "compiler/file/SourceFile.h"
 #include "compiler/file/SourceFileCache.h"
+#include "compiler/file/SourceFileIdentifier.h"
 #include "compiler/format/CompiledScriptSerializer.h"
+#include "compiler/format/DebugStoreSerializer.h"
 #include "compiler/format/ListingWriter.h"
 #include "compiler/model/CompilerWorkspace.h"
 #include "compiler/optimizer/Optimizer.h"
 #include "compiler/representation/CompiledScript.h"
 #include "compilercfg.h"
-
 
 namespace Pol::Bscript::Compiler
 {
@@ -56,12 +58,28 @@ void Compiler::write_listing( const std::string& pathname )
   }
 }
 
-void Compiler::write_dbg( const std::string& /*pathname*/, bool /*include_debug_text*/ )
+void Compiler::write_dbg( const std::string& pathname, bool include_debug_text )
 {
+  if ( output )
+  {
+    std::ofstream ofs( pathname, std::ofstream::binary );
+    auto text_ofs = include_debug_text ? std::make_unique<std::ofstream>( pathname + ".txt" )
+                                       : std::unique_ptr<std::ofstream>();
+
+    DebugStoreSerializer(*output).write( ofs, text_ofs.get() );
+  }
 }
 
-void Compiler::write_included_filenames( const std::string& /*pathname*/ )
+void Compiler::write_included_filenames( const std::string& pathname )
 {
+  if ( output )
+  {
+    std::ofstream ofs( pathname );
+    for( auto& r : output->source_file_identifiers )
+    {
+      ofs << r->pathname << "\n";
+    }
+  }
 }
 
 bool Compiler::compile_file( const std::string& filename,
@@ -116,6 +134,25 @@ void Compiler::compile_file_steps( const std::string& pathname,
   output = generate( std::move( workspace ), legacy_function_order );
 }
 
+void Compiler::parse_file( const std::string& fname, SourceFileCache& parse_tree_cache,
+                           Profile& profile, Report& report )
+{
+  SourceFileIdentifier ident( 0, fname );
+  auto psf = parse_tree_cache.load( ident, report );
+  long long initial_ambiguities = profile.ambiguities;
+  Pol::Tools::HighPerfTimer timer;
+  psf->get_compilation_unit( report, ident );
+  long long ambiguities = profile.ambiguities - initial_ambiguities;
+  auto elapsed_us = timer.ellapsed().count();
+  auto elapsed_ms = elapsed_us / 1000;
+  profile.parse_src_micros += elapsed_us;
+  if ( ambiguities >= 5 || elapsed_ms >= 500 )
+  {
+    INFO_PRINT << fname << " ambiguities: " << ambiguities << "\n";
+    INFO_PRINT << fname << " parse in: " << elapsed_ms << " ms\n";
+  }
+}
+
 std::unique_ptr<CompilerWorkspace> Compiler::build_workspace(
     const std::string& pathname, const LegacyFunctionOrder* legacy_function_order,
     Report& report )
@@ -137,7 +174,7 @@ void Compiler::register_constants( CompilerWorkspace& workspace )
 void Compiler::optimize( CompilerWorkspace& workspace, Report& report )
 {
   Pol::Tools::HighPerfTimer timer;
-  Optimizer optimizer( report );
+  Optimizer optimizer( workspace.constants, report );
   optimizer.optimize( workspace );
   profile.optimize_micros += timer.ellapsed().count();
 }
@@ -145,7 +182,7 @@ void Compiler::optimize( CompilerWorkspace& workspace, Report& report )
 void Compiler::disambiguate( CompilerWorkspace& workspace, Report& report )
 {
   Pol::Tools::HighPerfTimer timer;
-  Disambiguator disambiguator( report );
+  Disambiguator disambiguator( workspace.constants, report );
   disambiguator.disambiguate( workspace );
   profile.disambiguate_micros += timer.ellapsed().count();
 }
@@ -153,7 +190,7 @@ void Compiler::disambiguate( CompilerWorkspace& workspace, Report& report )
 void Compiler::analyze( CompilerWorkspace& workspace, Report& report )
 {
   Pol::Tools::HighPerfTimer timer;
-  SemanticAnalyzer analyzer( report );
+  SemanticAnalyzer analyzer( workspace.constants, report );
   analyzer.analyze( workspace );
   profile.analyze_micros += timer.ellapsed().count();
 }

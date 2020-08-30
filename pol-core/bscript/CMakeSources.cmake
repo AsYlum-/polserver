@@ -14,8 +14,14 @@ set (bscript_sources    # sorted !
   compiler/Compiler.cpp
   compiler/Compiler.h
   compiler/LegacyFunctionOrder.h
+  compiler/analyzer/Constants.cpp
+  compiler/analyzer/Constants.h
   compiler/analyzer/Disambiguator.cpp
   compiler/analyzer/Disambiguator.h
+  compiler/analyzer/FlowControlScope.cpp
+  compiler/analyzer/FlowControlScope.h
+  compiler/analyzer/FlowControlScopes.cpp
+  compiler/analyzer/FlowControlScopes.h
   compiler/analyzer/LocalVariableScope.cpp
   compiler/analyzer/LocalVariableScope.h
   compiler/analyzer/LocalVariableScopes.cpp
@@ -26,12 +32,64 @@ set (bscript_sources    # sorted !
   compiler/analyzer/Variables.h
   compiler/ast/Argument.cpp
   compiler/ast/Argument.h
+  compiler/ast/ArrayElementAccess.cpp
+  compiler/ast/ArrayElementAccess.h
+  compiler/ast/ArrayElementIndexes.cpp
+  compiler/ast/ArrayElementIndexes.h
+  compiler/ast/ArrayInitializer.cpp
+  compiler/ast/ArrayInitializer.h
+  compiler/ast/AssignSubscript.cpp
+  compiler/ast/AssignSubscript.h
+  compiler/ast/AssignVariableConsume.cpp
+  compiler/ast/AssignVariableConsume.h
+  compiler/ast/BasicForLoop.cpp
+  compiler/ast/BasicForLoop.h
+  compiler/ast/BinaryOperator.cpp
+  compiler/ast/BinaryOperator.h
   compiler/ast/Block.cpp
   compiler/ast/Block.h
+  compiler/ast/BreakStatement.cpp
+  compiler/ast/BreakStatement.h
+  compiler/ast/CaseStatement.cpp
+  compiler/ast/CaseStatement.h
+  compiler/ast/CaseDispatchDefaultSelector.cpp
+  compiler/ast/CaseDispatchDefaultSelector.h
+  compiler/ast/CaseDispatchGroup.cpp
+  compiler/ast/CaseDispatchGroup.h
+  compiler/ast/CaseDispatchGroups.cpp
+  compiler/ast/CaseDispatchGroups.h
+  compiler/ast/CaseDispatchSelectors.cpp
+  compiler/ast/CaseDispatchSelectors.h
+  compiler/ast/ConstDeclaration.cpp
+  compiler/ast/ConstDeclaration.h
+  compiler/ast/ContinueStatement.cpp
+  compiler/ast/ContinueStatement.h
+  compiler/ast/CstyleForLoop.cpp
+  compiler/ast/CstyleForLoop.h
+  compiler/ast/DebugStatementMarker.cpp
+  compiler/ast/DebugStatementMarker.h
+  compiler/ast/DictionaryEntry.cpp
+  compiler/ast/DictionaryEntry.h
+  compiler/ast/DictionaryInitializer.cpp
+  compiler/ast/DictionaryInitializer.h
+  compiler/ast/DoWhileLoop.cpp
+  compiler/ast/DoWhileLoop.h
+  compiler/ast/ElvisOperator.cpp
+  compiler/ast/ElvisOperator.h
+  compiler/ast/EmptyStatement.cpp
+  compiler/ast/EmptyStatement.h
+  compiler/ast/EnumDeclaration.cpp
+  compiler/ast/EnumDeclaration.h
+  compiler/ast/ErrorInitializer.cpp
+  compiler/ast/ErrorInitializer.h
   compiler/ast/Expression.cpp
   compiler/ast/Expression.h
+  compiler/ast/ExitStatement.cpp
+  compiler/ast/ExitStatement.h
   compiler/ast/FloatValue.cpp
   compiler/ast/FloatValue.h
+  compiler/ast/ForeachLoop.cpp
+  compiler/ast/ForeachLoop.h
   compiler/ast/Function.cpp
   compiler/ast/Function.h
   compiler/ast/FunctionBody.cpp
@@ -42,12 +100,26 @@ set (bscript_sources    # sorted !
   compiler/ast/FunctionParameterDeclaration.h
   compiler/ast/FunctionParameterList.cpp
   compiler/ast/FunctionParameterList.h
+  compiler/ast/FunctionReference.cpp
+  compiler/ast/FunctionReference.h
+  compiler/ast/GetMember.cpp
+  compiler/ast/GetMember.h
   compiler/ast/Identifier.cpp
   compiler/ast/Identifier.h
   compiler/ast/IfThenElseStatement.cpp
   compiler/ast/IfThenElseStatement.h
   compiler/ast/IntegerValue.cpp
   compiler/ast/IntegerValue.h
+  compiler/ast/JumpStatement.cpp
+  compiler/ast/JumpStatement.h
+  compiler/ast/LabelableStatement.cpp
+  compiler/ast/LabelableStatement.h
+  compiler/ast/LoopStatement.cpp
+  compiler/ast/LoopStatement.h
+  compiler/ast/MethodCall.cpp
+  compiler/ast/MethodCall.h
+  compiler/ast/MethodCallArgumentList.cpp
+  compiler/ast/MethodCallArgumentList.h
   compiler/ast/ModuleFunctionDeclaration.cpp
   compiler/ast/ModuleFunctionDeclaration.h
   compiler/ast/Node.cpp
@@ -60,20 +132,39 @@ set (bscript_sources    # sorted !
   compiler/ast/ProgramParameterDeclaration.h
   compiler/ast/ProgramParameterList.cpp
   compiler/ast/ProgramParameterList.h
+  compiler/ast/RepeatUntilLoop.cpp
+  compiler/ast/RepeatUntilLoop.h
+  compiler/ast/ReturnStatement.cpp
+  compiler/ast/ReturnStatement.h
+  compiler/ast/SetMember.cpp
+  compiler/ast/SetMember.h
+  compiler/ast/SetMemberByOperator.cpp
+  compiler/ast/SetMemberByOperator.h
   compiler/ast/Statement.cpp
   compiler/ast/Statement.h
   compiler/ast/StringValue.cpp
   compiler/ast/StringValue.h
+  compiler/ast/StructInitializer.cpp
+  compiler/ast/StructInitializer.h
+  compiler/ast/StructMemberInitializer.cpp
+  compiler/ast/StructMemberInitializer.h
   compiler/ast/TopLevelStatements.cpp
   compiler/ast/TopLevelStatements.h
   compiler/ast/UnaryOperator.cpp
   compiler/ast/UnaryOperator.h
+  compiler/ast/UninitializedValue.cpp
+  compiler/ast/UninitializedValue.h
+  compiler/ast/UserFunction.cpp
+  compiler/ast/UserFunction.h
   compiler/ast/Value.cpp
   compiler/ast/Value.h
   compiler/ast/ValueConsumer.cpp
   compiler/ast/ValueConsumer.h
   compiler/ast/VarStatement.cpp
   compiler/ast/VarStatement.h
+  compiler/ast/WhileLoop.cpp
+  compiler/ast/WhileLoop.h
+  compiler/astbuilder/AvailableUserFunction.h
   compiler/astbuilder/BuilderWorkspace.cpp
   compiler/astbuilder/BuilderWorkspace.h
   compiler/astbuilder/CompilerWorkspaceBuilder.cpp
@@ -92,20 +183,30 @@ set (bscript_sources    # sorted !
   compiler/astbuilder/ProgramBuilder.h
   compiler/astbuilder/SimpleStatementBuilder.cpp
   compiler/astbuilder/SimpleStatementBuilder.h
+  compiler/astbuilder/SimpleValueCloner.cpp
+  compiler/astbuilder/SimpleValueCloner.h
   compiler/astbuilder/SourceFileProcessor.cpp
   compiler/astbuilder/SourceFileProcessor.h
   compiler/astbuilder/TreeBuilder.cpp
   compiler/astbuilder/TreeBuilder.h
   compiler/astbuilder/UserFunctionBuilder.cpp
   compiler/astbuilder/UserFunctionBuilder.h
+  compiler/astbuilder/UserFunctionVisitor.cpp
+  compiler/astbuilder/UserFunctionVisitor.h
   compiler/astbuilder/ValueBuilder.cpp
   compiler/astbuilder/ValueBuilder.h
+  compiler/codegen/CaseDispatchGroupVisitor.cpp
+  compiler/codegen/CaseDispatchGroupVisitor.h
+  compiler/codegen/CaseJumpDataBlock.cpp
+  compiler/codegen/CaseJumpDataBlock.h
   compiler/codegen/CodeEmitter.cpp
   compiler/codegen/CodeEmitter.h
   compiler/codegen/CodeGenerator.cpp
   compiler/codegen/CodeGenerator.h
   compiler/codegen/DataEmitter.cpp
   compiler/codegen/DataEmitter.h
+  compiler/codegen/DebugBlockGuard.cpp
+  compiler/codegen/DebugBlockGuard.h
   compiler/codegen/InstructionEmitter.cpp
   compiler/codegen/InstructionEmitter.h
   compiler/codegen/InstructionGenerator.cpp
@@ -128,6 +229,14 @@ set (bscript_sources    # sorted !
   compiler/format/CompiledScriptSerializer.h
   compiler/format/ListingWriter.cpp
   compiler/format/ListingWriter.h
+  compiler/format/DebugStoreSerializer.cpp
+  compiler/format/DebugStoreSerializer.h
+  compiler/format/InputBuffer.cpp
+  compiler/format/InputBuffer.h
+  compiler/format/ListingWriter.cpp
+  compiler/format/ListingWriter.h
+  compiler/format/SideBySideListingWriter.cpp
+  compiler/format/SideBySideListingWriter.h
   compiler/format/StoredTokenDecoder.cpp
   compiler/format/StoredTokenDecoder.h
   compiler/model/CompilerWorkspace.cpp
@@ -140,20 +249,41 @@ set (bscript_sources    # sorted !
   compiler/model/Variable.h
   compiler/model/VariableScope.h
   compiler/model/WarnOn.h
+  compiler/optimizer/AssignmentOptimizer.cpp
+  compiler/optimizer/AssignmentOptimizer.h
+  compiler/optimizer/BinaryOperatorOptimizer.cpp
+  compiler/optimizer/BinaryOperatorOptimizer.h
+  compiler/optimizer/BinaryOperatorWithFloatOptimizer.cpp
+  compiler/optimizer/BinaryOperatorWithFloatOptimizer.h
+  compiler/optimizer/BinaryOperatorWithIntegerOptimizer.cpp
+  compiler/optimizer/BinaryOperatorWithIntegerOptimizer.h
+  compiler/optimizer/BinaryOperatorWithStringOptimizer.cpp
+  compiler/optimizer/BinaryOperatorWithStringOptimizer.h
+  compiler/optimizer/ConstantValidator.cpp
+  compiler/optimizer/ConstantValidator.h
   compiler/optimizer/Optimizer.cpp
   compiler/optimizer/Optimizer.h
   compiler/optimizer/ReferencedFunctionGatherer.cpp
   compiler/optimizer/ReferencedFunctionGatherer.h
   compiler/optimizer/UnaryOperatorOptimizer.cpp
   compiler/optimizer/UnaryOperatorOptimizer.h
+  compiler/optimizer/ValueConsumerOptimizer.cpp
+  compiler/optimizer/ValueConsumerOptimizer.h
   compiler/representation/CompiledScript.cpp
   compiler/representation/CompiledScript.h
+  compiler/representation/DebugBlock.cpp
+  compiler/representation/DebugBlock.h
+  compiler/representation/DebugStore.cpp
+  compiler/representation/DebugStore.h
   compiler/representation/ExportedFunction.cpp
   compiler/representation/ExportedFunction.h
   compiler/representation/ModuleDescriptor.cpp
   compiler/representation/ModuleDescriptor.h
   compiler/representation/ModuleFunctionDescriptor.cpp
   compiler/representation/ModuleFunctionDescriptor.h
+  compiler/Compiler.cpp
+  compiler/Compiler.h
+  compiler/LegacyFunctionOrder.h
   compiler/Profile.h
   compiler/Report.cpp
   compiler/Report.h
@@ -194,6 +324,7 @@ set (bscript_sources    # sorted !
   executortype.h
   expression.cpp
   expression.h
+  facility/Compiler.h
   filefmt.h
   fmodule.cpp
   fmodule.h

@@ -2,6 +2,7 @@
 
 #include "StoredToken.h"
 #include "compiler/ast/ModuleFunctionDeclaration.h"
+#include "compiler/codegen/CaseJumpDataBlock.h"
 #include "compiler/codegen/ModuleDeclarationRegistrar.h"
 #include "compiler/model/FlowControlLabel.h"
 #include "compiler/model/Variable.h"
@@ -14,10 +15,13 @@
 
 namespace Pol::Bscript::Compiler
 {
-InstructionEmitter::InstructionEmitter( CodeSection& code, DataSection& data,
+InstructionEmitter::InstructionEmitter( CodeSection& code, DataSection& data, DebugStore& debug,
+                                        ExportedFunctions& exported_functions,
                                         ModuleDeclarationRegistrar& module_declaration_registrar )
   : code_emitter( code ),
     data_emitter( data ),
+    debug( debug ),
+    exported_functions( exported_functions ),
     module_declaration_registrar( module_declaration_registrar )
 {
   initialize_data();
@@ -29,10 +33,53 @@ void InstructionEmitter::initialize_data()
   data_emitter.store( &nul, sizeof nul );
 }
 
+void InstructionEmitter::register_exported_function( FlowControlLabel& label,
+                                                     const std::string& name, unsigned parameters )
+{
+  exported_functions.emplace_back( name, parameters, label.address() );
+}
+
+unsigned InstructionEmitter::enter_debug_block(
+    const std::vector<std::shared_ptr<Variable>>& block_local_variables )
+{
+  if ( block_local_variables.empty() )
+  {
+    return debug_instruction_info.block_index;
+  }
+
+  unsigned previous_debug_block_id = debug_instruction_info.block_index;
+
+  std::vector<std::string> local_variable_names;
+  local_variable_names.reserve( block_local_variables.size() );
+  for ( auto& var : block_local_variables )
+  {
+    local_variable_names.push_back( var->name );
+  }
+  debug_instruction_info.block_index =
+      debug.add_block( debug_instruction_info.block_index, std::move( local_variable_names ) );
+
+  return previous_debug_block_id;
+}
+
+void InstructionEmitter::set_debug_block( unsigned block_id )
+{
+  debug_instruction_info.block_index = block_id;
+}
+
 void InstructionEmitter::access_variable( const Variable& v )
 {
   BTokenId token_id = v.scope == VariableScope::Global ? TOK_GLOBALVAR : TOK_LOCALVAR;
   emit_token( token_id, TYP_OPERAND, v.index );
+}
+
+void InstructionEmitter::array_append()
+{
+  emit_token( TOK_INSERTINTO, TYP_OPERATOR );
+}
+
+void InstructionEmitter::array_create()
+{
+  emit_token( TOK_ARRAY, TYP_OPERAND );
 }
 
 void InstructionEmitter::array_declare()
@@ -43,6 +90,42 @@ void InstructionEmitter::array_declare()
 void InstructionEmitter::assign()
 {
   emit_token( TOK_ASSIGN, TYP_OPERATOR );
+}
+
+void InstructionEmitter::assign_subscript_consume( unsigned indexes )
+{
+  emit_token( INS_SUBSCRIPT_ASSIGN_CONSUME, TYP_UNARY_OPERATOR, indexes );
+}
+
+void InstructionEmitter::assign_suscript( unsigned indexes )
+{
+  emit_token( INS_SUBSCRIPT_ASSIGN, TYP_UNARY_OPERATOR, indexes );
+}
+
+void InstructionEmitter::assign_multisubscript( unsigned indexes )
+{
+  emit_token( INS_MULTISUBSCRIPT_ASSIGN, TYP_UNARY_OPERATOR, indexes );
+}
+
+void InstructionEmitter::assign_variable( const Variable& v )
+{
+  auto token_id = v.scope == VariableScope::Global ? INS_ASSIGN_GLOBALVAR : INS_ASSIGN_LOCALVAR;
+  emit_token( token_id, TYP_UNARY_OPERATOR, v.index );
+}
+
+void InstructionEmitter::basic_for_init( FlowControlLabel& label )
+{
+  register_with_label( label, emit_token( INS_INITFOR, TYP_RESERVED ) );
+}
+
+void InstructionEmitter::basic_for_next( FlowControlLabel& label )
+{
+  register_with_label( label, emit_token( INS_NEXTFOR, TYP_RESERVED ) );
+}
+
+void InstructionEmitter::binary_operator( BTokenId token_id )
+{
+  emit_token( token_id, TYP_OPERATOR );
 }
 
 void InstructionEmitter::call_method_id( MethodID method_id, unsigned argument_count )
@@ -71,9 +154,39 @@ void InstructionEmitter::call_modulefunc(
   append_token( token );
 }
 
+void InstructionEmitter::call_userfunc( FlowControlLabel& label )
+{
+  unsigned addr = emit_token( CTRL_JSR_USERFUNC, TYP_CONTROL );
+  register_with_label( label, addr );
+}
+
+unsigned InstructionEmitter::casejmp()
+{
+  return emit_token( INS_CASEJMP, TYP_RESERVED );
+}
+
+unsigned InstructionEmitter::case_dispatch_table( const CaseJumpDataBlock& dispatch_table )
+{
+  auto& bytes = dispatch_table.get_data();
+  return data_emitter.append( bytes.data(), bytes.size() );
+}
+
 void InstructionEmitter::consume()
 {
   emit_token( TOK_CONSUMER, TYP_UNARY_OPERATOR );
+}
+
+void InstructionEmitter::ctrl_statementbegin( unsigned file_index, unsigned file_offset,
+                                              const std::string& source_text )
+{
+  unsigned source_offset = emit_data( source_text );
+  Pol::Bscript::DebugToken debug_token;
+  debug_token.sourceFile = file_index;
+  debug_token.offset = file_offset;
+  debug_token.strOffset = source_offset;
+  unsigned offset =
+      data_emitter.store( reinterpret_cast<std::byte*>( &debug_token ), sizeof debug_token );
+  emit_token( CTRL_STATEMENTBEGIN, TYP_CONTROL, offset );
 }
 
 void InstructionEmitter::declare_variable( const Variable& v )
@@ -82,10 +195,56 @@ void InstructionEmitter::declare_variable( const Variable& v )
   emit_token( token_id, TYP_RESERVED, v.index );
 }
 
+void InstructionEmitter::dictionary_create()
+{
+  emit_token( TOK_DICTIONARY, TYP_OPERAND );
+}
+
+void InstructionEmitter::dictionary_add_member()
+{
+  emit_token( INS_DICTIONARY_ADDMEMBER, TYP_OPERATOR );
+}
+
+void InstructionEmitter::error_create()
+{
+  emit_token( TOK_ERROR, TYP_OPERAND );
+}
+
+void InstructionEmitter::exit()
+{
+  emit_token( RSV_EXIT, TYP_RESERVED );
+}
+
+void InstructionEmitter::foreach_init( FlowControlLabel& label )
+{
+  register_with_label( label, emit_token( INS_INITFOREACH, TYP_RESERVED ) );
+}
+
+void InstructionEmitter::foreach_step( FlowControlLabel& label )
+{
+  register_with_label( label, emit_token( INS_STEPFOREACH, TYP_RESERVED ) );
+}
+
+void InstructionEmitter::function_reference( unsigned parameter_count, FlowControlLabel& label )
+{
+  register_with_label( label, emit_token( TOK_FUNCREF, (BTokenType)parameter_count ) );
+}
+
 void InstructionEmitter::get_arg( const std::string& name )
 {
   unsigned offset = emit_data( name );
   emit_token( INS_GET_ARG, TYP_OPERATOR, offset );
+}
+
+void InstructionEmitter::get_member( const std::string& name )
+{
+  unsigned offset = emit_data( name );
+  emit_token( INS_GET_MEMBER, TYP_UNARY_OPERATOR, offset );
+}
+
+void InstructionEmitter::get_member_id( MemberID member_id )
+{
+  emit_token( INS_GET_MEMBER_ID, TYP_UNARY_OPERATOR, member_id );
 }
 
 void InstructionEmitter::jmp_always( FlowControlLabel& label )
@@ -118,14 +277,100 @@ void InstructionEmitter::leaveblock( unsigned local_vars_to_remove )
   emit_token( CTRL_LEAVE_BLOCK, TYP_CONTROL, local_vars_to_remove );
 }
 
+void InstructionEmitter::makelocal()
+{
+  emit_token( CTRL_MAKELOCAL, TYP_CONTROL );
+}
+
+void InstructionEmitter::pop_param( const std::string& name )
+{
+  unsigned offset = emit_data( name );
+  emit_token( INS_POP_PARAM, TYP_OPERATOR, offset );
+}
+
+void InstructionEmitter::pop_param_byref( const std::string& name )
+{
+  unsigned offset = emit_data( name );
+  emit_token( INS_POP_PARAM_BYREF, TYP_OPERATOR, offset );
+}
+
 void InstructionEmitter::progend()
 {
   emit_token( CTRL_PROGEND, TYP_CONTROL );
 }
 
+void InstructionEmitter::return_from_user_function()
+{
+  emit_token( RSV_RETURN, TYP_RESERVED );
+}
+
+void InstructionEmitter::set_member_id_consume( MemberID member_id )
+{
+  emit_token( INS_SET_MEMBER_ID_CONSUME, TYP_UNARY_OPERATOR, member_id );
+}
+
+void InstructionEmitter::set_member_id( MemberID member_id )
+{
+  emit_token( INS_SET_MEMBER_ID, TYP_UNARY_OPERATOR, member_id );
+}
+
+void InstructionEmitter::set_member_consume( const std::string& name )
+{
+  unsigned offset = emit_data( name );
+  emit_token( INS_SET_MEMBER_CONSUME, TYP_UNARY_OPERATOR, offset );
+}
+
+void InstructionEmitter::set_member( const std::string& name )
+{
+  unsigned offset = emit_data( name );
+  emit_token( INS_SET_MEMBER, TYP_UNARY_OPERATOR, offset );
+}
+
+void InstructionEmitter::set_member_by_operator( BTokenId token_id, MemberID member_id )
+{
+  emit_token( token_id, TYP_UNARY_OPERATOR, member_id );
+}
+
+unsigned InstructionEmitter::skip_if_true_else_consume()
+{
+  return emit_token( INS_SKIPIFTRUE_ELSE_CONSUME, TYP_CONTROL );
+}
+
+void InstructionEmitter::struct_create()
+{
+  emit_token( TOK_STRUCT, TYP_OPERAND );
+}
+
+void InstructionEmitter::struct_add_member( const std::string& name )
+{
+  auto offset = emit_data( name );
+  emit_token( INS_ADDMEMBER_ASSIGN, TYP_OPERAND, offset );
+}
+
+void InstructionEmitter::struct_add_uninit_member( const std::string& name )
+{
+  auto offset = emit_data( name );
+  emit_token( INS_ADDMEMBER2, TYP_OPERAND, offset );
+}
+
+void InstructionEmitter::subscript_single()
+{
+  emit_token( TOK_ARRAY_SUBSCRIPT, TYP_OPERATOR, 1 );
+}
+
+void InstructionEmitter::subscript_multiple( int indexes )
+{
+  emit_token( INS_MULTISUBSCRIPT, TYP_OPERATOR, indexes );
+}
+
 void InstructionEmitter::unary_operator( BTokenId token_id )
 {
   emit_token( token_id, TYP_UNARY_OPERATOR );
+}
+
+void InstructionEmitter::uninit()
+{
+  emit_token( INS_UNINIT, TYP_OPERAND );
 }
 
 void InstructionEmitter::value( double v )
@@ -159,7 +404,33 @@ unsigned InstructionEmitter::emit_token( BTokenId id, BTokenType type, unsigned 
 
 unsigned InstructionEmitter::append_token( StoredToken& token )
 {
+  debug.add_instruction( debug_instruction_info );
+  debug_instruction_info.statement_begin = false;
   return code_emitter.append( token );
+}
+
+void InstructionEmitter::debug_file_line( unsigned file, unsigned line )
+{
+  // debug info always has file #0 = empty (keeping for parity, for now)
+  debug_instruction_info.file_index = file + 1;
+  debug_instruction_info.line_number = line;
+}
+
+void InstructionEmitter::debug_statementbegin()
+{
+  debug_instruction_info.statement_begin = true;
+}
+
+unsigned InstructionEmitter::next_instruction_address()
+{
+  return code_emitter.next_address();
+}
+
+void InstructionEmitter::debug_user_function( const std::string& name, unsigned first_pc,
+                                              unsigned last_pc )
+{
+  DebugStore::UserFunctionInfo ufi{ name, first_pc, last_pc };
+  debug.add_user_function( std::move( ufi ) );
 }
 
 void InstructionEmitter::patch_offset( unsigned index, unsigned offset )
