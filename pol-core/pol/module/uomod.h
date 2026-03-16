@@ -32,6 +32,7 @@
 
 #include "base/range.h"
 #include "clib/rawtypes.h"
+#include "network/packethelper.h"
 #include "plib/poltype.h"
 #include "polmodl.h"
 #include "reftypes.h"
@@ -116,6 +117,7 @@ public:
   [[nodiscard]] Bscript::BObjectImp* mf_DestroyMulti();
   [[nodiscard]] Bscript::BObjectImp* mf_SendTextEntryGump();
   [[nodiscard]] Bscript::BObjectImp* mf_SendDialogGump();
+  [[nodiscard]] Bscript::BObjectImp* mf_DisplayDialogGump();
   [[nodiscard]] Bscript::BObjectImp* mf_CloseGump();
   [[nodiscard]] Bscript::BObjectImp* mf_CloseWindow( /* chr, type, who */ );
   [[nodiscard]] Bscript::BObjectImp* mf_SendEvent();
@@ -312,7 +314,7 @@ public:
   Mobile::Character* popup_menu_selection_chr;
   Core::UObject* popup_menu_selection_above;
   Mobile::Character* prompt_chr;
-  Mobile::Character* gump_chr;
+  std::vector<std::pair<Mobile::Character*, u32>> gump_chrs;
   Mobile::Character* textentry_chr;
   Mobile::Character* resurrect_chr;
   Mobile::Character* selcolor_chr;
@@ -329,6 +331,8 @@ public:
 
   explicit UOExecutorModule( Core::UOExecutor& exec );
   ~UOExecutorModule() override;
+  UOExecutorModule( const UOExecutorModule& ) = delete;
+  UOExecutorModule& operator=( const UOExecutorModule& ) = delete;
 
   size_t sizeEstimate() const override;
 
@@ -348,18 +352,14 @@ protected:
   static Core::Range3d internal_InBoxAreaChecks( const Core::Pos2d& p1, int z1,
                                                  const Core::Pos2d& p2, int z2,
                                                  Realms::Realm* realm );
-  Bscript::BObjectImp* internal_SendUnCompressedGumpMenu( Mobile::Character* chr,
-                                                          Bscript::ObjArray* layout_arr,
-                                                          Bscript::ObjArray* data_arr, int x, int y,
-                                                          u32 gumpid );
-  Bscript::BObjectImp* internal_SendCompressedGumpMenu( Mobile::Character* chr,
-                                                        Bscript::ObjArray* layout_arr,
-                                                        Bscript::ObjArray* data_arr, int x, int y,
-                                                        u32 gumpid );
 
-private:  // not implemented
-  UOExecutorModule( const UOExecutorModule& );
-  UOExecutorModule& operator=( const UOExecutorModule& );
+private:
+  static std::string buildUnCompressedGumpMenu(
+      Network::PktHelper::PacketOut<Network::PktOut_B0>& msg, Bscript::ObjArray* layout_arr,
+      Bscript::ObjArray* data_arr, int x, int y, u32 gumpid );
+  static std::string buildCompressedGumpMenu(
+      Network::PktHelper::PacketOut<Network::PktOut_DD>& msg, Bscript::ObjArray* layout_arr,
+      Bscript::ObjArray* data_arr, int x, int y, u32 gumpid );
 };
 }  // namespace Module
 }  // namespace Pol
