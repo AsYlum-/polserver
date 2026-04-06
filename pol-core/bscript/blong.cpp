@@ -4,6 +4,8 @@
  */
 
 
+#include <fmt/compile.h>
+#include <iterator>
 #include <sstream>
 #include <string>
 
@@ -15,6 +17,8 @@
 
 namespace Pol::Bscript
 {
+using namespace fmt::literals;
+
 #if BOBJECTIMP_DEBUG
 BLong::BLong( int lval ) : BObjectImp( OTLong ), lval_( static_cast<int>( lval ) ) {}
 
@@ -22,24 +26,15 @@ BLong::BLong( const BLong& L ) : BObjectImp( OTLong ), lval_( L.lval_ ) {}
 #endif
 
 
-std::string BLong::pack() const
-{
-  OSTRINGSTREAM os;
-  os << "i" << lval_;
-  return OSTRINGSTREAM_STR( os );
-}
-
 std::string BLong::pack( int val )
 {
-  OSTRINGSTREAM os;
-  os << "i" << val;
-  return OSTRINGSTREAM_STR( os );
+  return fmt::format( "i{}"_cf, val );
 }
 
 
-void BLong::packonto( std::ostream& os ) const
+void BLong::packonto( std::string& str ) const
 {
-  os << "i" << lval_;
+  fmt::format_to( std::back_inserter( str ), "i{}"_cf, lval_ );
 }
 
 BObjectImp* BLong::unpack( std::istream& is )
@@ -102,11 +97,7 @@ bool BLong::operator<( const BObjectImp& objimp ) const
 
 std::string BLong::getStringRep() const
 {
-  OSTRINGSTREAM os;
-
-  os << lval_;
-
-  return OSTRINGSTREAM_STR( os );
+  return fmt::to_string( lval_ );
 }
 
 BObjectImp* BLong::selfPlusObjImp( const BObjectImp& objimp ) const

@@ -11,6 +11,8 @@
 #include <cstdlib>
 #include <ctype.h>
 #include <cwctype>
+#include <fmt/compile.h>
+#include <iterator>
 #include <string>
 #include <utf8cpp/utf8.h>
 
@@ -38,6 +40,8 @@
 
 namespace Pol::Bscript
 {
+using namespace fmt::literals;
+
 String::String( BObjectImp& objimp ) : BObjectImp( OTString ), value_( objimp.getStringRep() ) {}
 
 String::String( const char* s, size_t len, Tainted san ) : BObjectImp( OTString ), value_( s, len )
@@ -158,16 +162,15 @@ void String::ESubStrReplace( String* replace_with, unsigned int index, unsigned 
 
 std::string String::pack() const
 {
-  return "s" + value_;
+  return fmt::format( "s{}"_cf, value_ );
 }
-
-void String::packonto( std::ostream& os ) const
+void String::packonto( std::string& str ) const
 {
-  os << "S" << value_.size() << ":" << value_;
+  fmt::format_to( std::back_inserter( str ), "S{}:{}"_cf, value_.size(), value_ );
 }
-void String::packonto( std::ostream& os, const std::string& value )
+void String::packonto( std::string& str, const std::string& value )
 {
-  os << "S" << value.size() << ":" << value;
+  fmt::format_to( std::back_inserter( str ), "S{}:{}"_cf, value.size(), value );
 }
 
 BObjectImp* String::unpack( std::istream& is )
@@ -1177,7 +1180,7 @@ BObjectImp* String::call_method_id( const int id, Executor& ex, bool /*forcebuil
         return new BError( "string.join expects an array" );
       ObjArray* container = cont->impptr<ObjArray>();
       // no empty check here on purpose
-      OSTRINGSTREAM joined;
+      std::string joined;
       bool first = true;
       for ( const BObjectRef& ref : container->ref_arr )
       {
@@ -1188,13 +1191,13 @@ BObjectImp* String::call_method_id( const int id, Executor& ex, bool /*forcebuil
           if ( bo == nullptr )
             continue;
           if ( !first )
-            joined << value_;
+            joined += value_;
           else
             first = false;
-          joined << bo->impptr()->getStringRep();
+          joined += bo->impptr()->getStringRep();
         }
       }
-      return new String( OSTRINGSTREAM_STR( joined ) );
+      return new String( joined );
     }
     return new BError( "string.join(array) requires a parameter." );
   }
@@ -1269,7 +1272,7 @@ std::string String::fromUTF16( const unsigned short* code, size_t len, bool big_
   struct BigEndianIterator
   {
     const u16* ptr;
-    BigEndianIterator( const u16* begin ) : ptr( begin ){};
+    BigEndianIterator( const u16* begin ) : ptr( begin ) {};
     BigEndianIterator& operator++()
     {
       ++ptr;

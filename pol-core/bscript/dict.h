@@ -50,7 +50,7 @@ protected:
   BObjectImp* copy() const override;
   std::string getStringRep() const override;
   size_t sizeEstimate() const override;
-  void packonto( std::ostream& os ) const override;
+  void packonto( std::string& str ) const override;
   const char* typeOf() const override;
   u8 typeOfInt() const override;
 
@@ -58,7 +58,7 @@ protected:
 
   char packtype() const;
   const char* typetag() const;
-  void FormatForStringRep( std::ostream& os, const BObject& bkeyobj,
+  void FormatForStringRep( std::string& rep, const BObject& bkeyobj,
                            const BObjectRef& bvalref ) const;
 
   BObjectRef OperSubscript( const BObject& obj ) override;

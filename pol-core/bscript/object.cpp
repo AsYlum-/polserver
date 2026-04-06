@@ -9,7 +9,9 @@
  */
 
 #include <assert.h>
+#include <fmt/compile.h>
 #include <istream>
+#include <iterator>
 #include <limits>
 #include <stddef.h>
 #include <string>
@@ -42,6 +44,8 @@
 
 namespace Pol::Bscript
 {
+using namespace fmt::literals;
+
 Clib::fixed_allocator<sizeof( BObject ), 256> bobject_alloc;
 Clib::fixed_allocator<sizeof( UninitObject ), 256> uninit_alloc;
 Clib::fixed_allocator<sizeof( BLong ), 256> blong_alloc;
@@ -198,14 +202,14 @@ BObjectImp::~BObjectImp()
 
 std::string BObjectImp::pack() const
 {
-  OSTRINGSTREAM os;
-  packonto( os );
-  return OSTRINGSTREAM_STR( os );
+  std::string str;
+  packonto( str );
+  return str;
 }
 
-void BObjectImp::packonto( std::ostream& os ) const
+void BObjectImp::packonto( std::string& str ) const
 {
-  os << "u";
+  str += "u";
 }
 
 std::string BObjectImp::getFormattedStringRep() const
@@ -926,9 +930,7 @@ BObjectImp* BObjectImp::call_method( const char* methodname, Executor& /*ex*/ )
 }
 BObjectImp* BObjectImp::call_method_id( const int id, Executor& /*ex*/, bool /*forcebuiltin*/ )
 {
-  OSTRINGSTREAM os;
-  os << "Method id '" << id << "' (" << getObjMethod( id )->code << ") not found";
-  return new BError( std::string( OSTRINGSTREAM_STR( os ) ) );
+  return new BError( fmt::format( "Method id '{}' ({}) not found", id, getObjMethod( id )->code ) );
 }
 BObjectRef BObjectImp::set_member( const char* membername, BObjectImp* /*valueimp*/, bool /*copy*/ )
 {
@@ -1402,27 +1404,23 @@ void ObjArray::addElement( BObjectImp* imp )
 
 std::string ObjArray::getStringRep() const
 {
-  OSTRINGSTREAM os;
-  os << "{ ";
+  std::string rep{ "{ " };
   bool any = false;
   for ( const auto& elem : ref_arr )
   {
     if ( any )
-      os << ", ";
+      rep += ", ";
     else
       any = true;
 
     BObject* bo = elem.get();
 
     if ( bo != nullptr )
-    {
-      std::string tmp = bo->impptr()->getStringRep();
-      os << tmp;
-    }
+      rep += bo->impptr()->getStringRep();
   }
-  os << " }";
+  rep += " }";
 
-  return OSTRINGSTREAM_STR( os );
+  return rep;
 }
 
 long ObjArray::contains( const BObjectImp& imp ) const
@@ -2122,19 +2120,19 @@ BObjectImp* ObjArray::call_method( const char* methodname, Executor& ex )
   return nullptr;
 }
 
-void ObjArray::packonto( std::ostream& os ) const
+void ObjArray::packonto( std::string& str ) const
 {
-  os << "a" << ref_arr.size() << ":";
+  fmt::format_to( std::back_inserter( str ), "a{}:"_cf, ref_arr.size() );
   for ( const auto& elem : ref_arr )
   {
     if ( elem.get() )
     {
       BObject* bo = elem.get();
-      bo->impptr()->packonto( os );
+      bo->impptr()->packonto( str );
     }
     else
     {
-      os << "x";
+      str += "x";
     }
   }
 }
@@ -2194,16 +2192,9 @@ BObjectImp* BBoolean::unpack( std::istream& is )
   return new BError( "Error extracting Boolean value" );
 }
 
-void BBoolean::packonto( std::ostream& os ) const
+void BBoolean::packonto( std::string& str ) const
 {
-  os << "b" << ( bval_ ? 1 : 0 );
-}
-
-std::string BBoolean::pack() const
-{
-  OSTRINGSTREAM os;
-  os << "b" << ( bval_ ? 1 : 0 );
-  return OSTRINGSTREAM_STR( os );
+  fmt::format_to( std::back_inserter( str ), "b{}"_cf, bval_ ? 1 : 0 );
 }
 
 BObjectImp* BBoolean::copy() const
